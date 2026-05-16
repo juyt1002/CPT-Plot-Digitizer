@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPT Plot Digitizer</title>
+<style>
+:root {
+  --bg: #f5f6f8; --bg2: #ffffff; --bg3: #f0f1f4;
+  --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.15);
+  --text: #1a1d2e; --text2: #5a6170; --text3: #9ba3b5;
+  --blue: #2563eb; --emerald: #059669; --violet: #7c3aed;
+  --amber: #d97706; --rose: #e11d48; --teal: #0d9488; --green: #16a34a;
+  --radius: 12px; --radius-sm: 8px; --shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.5; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 20px; height: 52px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.logo { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: var(--blue); }
+.logo span { font-weight: 400; color: var(--text2); }
+nav { display: flex; gap: 4px; margin-left: auto; }
+.nav-btn { background: none; border: none; color: var(--text2); padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; transition: all 0.15s; }
+.nav-btn:hover { background: var(--bg3); color: var(--text); }
+.nav-btn.active { background: #eff6ff; color: var(--blue); font-weight: 500; }
+.app-body { display: flex; flex: 1; overflow: hidden; }
+.left-panel { width: 320px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+.canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.right-panel { width: 300px; flex-shrink: 0; background: var(--bg2); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+.next-step { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.step-card { border-radius: var(--radius); padding: 14px 16px; }
+.step-card.blue { background: #eff6ff; border: 1px solid #bfdbfe; }
+.step-card.emerald { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.step-card.violet { background: #f5f3ff; border: 1px solid #ddd6fe; }
+.step-card.rose { background: #fff1f2; border: 1px solid #fecdd3; }
+.step-num { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.step-card.blue .step-num { color: #1d4ed8; }
+.step-card.emerald .step-num { color: #047857; }
+.step-card.violet .step-num { color: #6d28d9; }
+.step-card.rose .step-num { color: #be123c; }
+.step-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.step-desc { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.btn-blue { background: var(--blue); color: white; border-color: var(--blue); }
+.btn-blue:hover { background: #1d4ed8; }
+.btn-emerald { background: var(--emerald); color: white; border-color: var(--emerald); }
+.btn-emerald:hover { background: #047857; }
+.btn-violet { background: var(--violet); color: white; border-color: var(--violet); }
+.btn-violet:hover { background: #6d28d9; }
+.btn-ghost { background: white; color: var(--text2); border-color: var(--border2); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 6px; border-radius: var(--radius-sm); background: white; border: 1px solid var(--border); color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; transition: all 0.15s; }
+.btn-icon:hover { background: var(--bg3); color: var(--text); }
+.btn-icon.active { background: var(--blue); color: white; border-color: var(--blue); }
+.btn:disabled, button:disabled { opacity: 0.4; cursor: not-allowed; }
+.panel-section { border-bottom: 1px solid var(--border); }
+.panel-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; user-select: none; }
+.panel-header:hover { background: var(--bg3); }
+.panel-icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.panel-title { font-size: 13px; font-weight: 600; flex: 1; color: var(--text); }
+.panel-chevron { color: var(--text3); font-size: 10px; transition: transform 0.15s; }
+.panel-chevron.open { transform: rotate(180deg); }
+.panel-body { padding: 0 16px 14px; }
+label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
+input[type=text], input[type=number], select { width: 100%; background: white; border: 1px solid var(--border2); color: var(--text); padding: 7px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none; }
+input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+input[type=range] { width: 100%; accent-color: var(--blue); cursor: pointer; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.form-group { margin-bottom: 10px; }
+.canvas-toolbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 12px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.zoom-display { font-size: 12px; color: var(--text2); min-width: 44px; text-align: center; }
+.toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.canvas-viewport { flex: 1; overflow: hidden; position: relative; background: #e8edf5; }
+#main-canvas { position: absolute; transform-origin: top left; cursor: crosshair; display: block; }
+#minimap-container { position: absolute; bottom: 12px; right: 12px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border2); background: white; cursor: pointer; box-shadow: var(--shadow); }
+#minimap { display: block; }
+.guide-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.12); max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
+.guide-banner.green { background: #f0fdf4; border: 1px solid #86efac; color: #15803d; }
+.guide-banner.amber { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+.guide-banner.blue { background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; }
+.guide-banner.violet { background: #f5f3ff; border: 1px solid #c4b5fd; color: #5b21b6; }
+.refine-guide { background: #f5f3ff; border-top: 1px solid #ddd6fe; padding: 10px 16px; flex-shrink: 0; display: none; }
+.refine-guide.visible { display: block; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th { background: #f8f9fb; padding: 6px 8px; text-align: left; color: var(--text2); font-weight: 500; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--border); }
+.data-table td { padding: 4px 8px; border-bottom: 1px solid rgba(0,0,0,0.04); color: var(--text); }
+.data-table tr.overridden td { background: #fffbeb; }
+.data-table tr.added td { background: #f0fdf4; }
+.data-table tr:hover td { background: #f5f6f8; }
+.table-wrap { max-height: 280px; overflow-y: auto; }
+.kind-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding: 1px 5px; border-radius: 4px; }
+.kind-badge.overridden { background: #fef3c7; color: #92400e; }
+.kind-badge.added { background: #d1fae5; color: #065f46; }
+.color-swatch { width: 28px; height: 28px; border-radius: 6px; border: 2px solid var(--border2); cursor: pointer; display: inline-block; }
+.info-box { background: #f8f9fb; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+.calib-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; flex-shrink: 0; margin-top: 3px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1d2e; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.3s; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+.toast.show { opacity: 1; }
+.slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.slider-row input[type=range] { flex: 1; }
+.slider-val { font-size: 12px; color: var(--text2); min-width: 28px; text-align: right; }
+.overlay-info { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 40; background: #fff1f2; border: 1px solid #fecdd3; color: #be123c; padding: 6px 16px; border-radius: 16px; font-size: 12px; pointer-events: none; white-space: nowrap; display: none; }
+.tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+.tag-blue { background: #dbeafe; color: #1d4ed8; }
+.tag-green { background: #d1fae5; color: #065f46; }
+.tag-rose { background: #ffe4e6; color: #be123c; }
+.row-count { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.inline-edit { display: flex; align-items: center; gap: 4px; }
+.inline-edit input { width: 70px; padding: 2px 6px; font-size: 12px; }
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+.help-content { padding: 24px; max-width: 700px; }
+.help-content h2 { font-size: 20px; margin-bottom: 8px; }
+.help-content h3 { font-size: 15px; margin: 20px 0 6px; color: var(--blue); }
+.help-content p { color: var(--text2); margin-bottom: 8px; line-height: 1.6; }
+.help-step { display: flex; gap: 12px; margin-bottom: 16px; padding: 14px; background: white; border-radius: var(--radius); border: 1px solid var(--border); }
+.help-step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.help-step-body { flex: 1; }
+.help-step-title { font-weight: 600; margin-bottom: 4px; }
+.help-step-desc { font-size: 13px; color: var(--text2); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CPT<span>Digitizer</span></div>
+  <nav>
+    <button class="nav-btn active" id="nav-digitizer" onclick="showPage('digitizer')">Digitizer</button>
+    <button class="nav-btn" id="nav-help" onclick="showPage('help')">Help</button>
+  </nav>
+</header>
+
+<div id="page-digitizer" class="app-body">
+  <div class="left-panel">
+    <div class="next-step" id="next-step-area"></div>
+
+    <div class="panel-section" id="sec-image">
+      <div class="panel-header" onclick="toggleSection('image')">
+        <div class="panel-icon" style="background:rgba(59,130,246,0.2)">📷</div>
+        <div class="panel-title">Image</div>
+        <div class="panel-chevron open" id="chev-image">▾</div>
+      </div>
+      <div class="panel-body" id="body-image">
+        <div class="form-group">
+          <label>Upload CPT plot image</label>
+          <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFileUpload(this)">
+          <button class="btn btn-blue" style="width:100%" onclick="document.getElementById('file-input').click()">⬆ Choose image</button>
+          <div id="upload-error" style="color:var(--rose);font-size:12px;margin-top:4px;display:none"></div>
+        </div>
+        <div id="image-info" style="font-size:12px;color:var(--text2);display:none"></div>
+      </div>
+    </div>
+
+    <div class="panel-section" id="sec-calib">
+      <div class="panel-header" onclick="toggleSection('calib')">
+        <div class="panel-icon" style="background:rgba(34,197,94,0.2)">🎯</div>
+        <div class="panel-title">Calibrate axes</div>
+        <div class="panel-chevron" id="chev-calib">▾</div>
+      </div>
+      <div class="panel-body" id="body-calib" style="display:none">
+        <div class="info-box" style="line-height:1.7">
+          Two known points calibrate both axes. Each point = <strong>two clicks</strong>:<br>
+          <b>Click 1</b> — click on an X-axis tick (only X position recorded).<br>
+          <b>Click 2</b> — X is now locked; click a depth tick (only Y recorded).<br>
+          <span style="color:var(--text3)">No need to find the exact intersection.</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="calib-dot" style="background:#16a34a"></div>
+            <span style="font-weight:600;font-size:13px">Point A</span>
+            <span id="calib-a-status" class="tag tag-blue" style="margin-left:auto;font-size:10px">not set</span>
+          </div>
+          <div class="form-row">
+            <div><label>X value</label><input type="number" id="calib-ax" placeholder="e.g. 0" step="any"></div>
+            <div><label>Depth</label><input type="number" id="calib-ay" placeholder="e.g. 0" step="any"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="startCalibPick('A')">🎯 Pick on image</button>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="calib-dot" style="background:#d97706"></div>
+            <span style="font-weight:600;font-size:13px">Point B</span>
+            <span id="calib-b-status" class="tag tag-blue" style="margin-left:auto;font-size:10px">not set</span>
+          </div>
+          <div class="form-row">
+            <div><label>X value</label><input type="number" id="calib-bx" placeholder="e.g. 10" step="any"></div>
+            <div><label>Depth</label><input type="number" id="calib-by" placeholder="e.g. 20" step="any"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="startCalibPick('B')">🎯 Pick on image</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-emerald btn-sm" onclick="applyCalib()">✓ Apply calibration</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearCalib()">Clear</button>
+        </div>
+        <div id="calib-result" style="font-size:11px;color:var(--text2);margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="panel-section" id="sec-plotarea">
+      <div class="panel-header" onclick="toggleSection('plotarea')">
+        <div class="panel-icon" style="background:rgba(59,130,246,0.2)">⬜</div>
+        <div class="panel-title">Plot area</div>
+        <div class="panel-chevron" id="chev-plotarea">▾</div>
+      </div>
+      <div class="panel-body" id="body-plotarea" style="display:none">
+        <div class="info-box">Click two diagonal corners of the plot area bounding the curve.</div>
+        <div id="plot-area-status" style="font-size:12px;color:var(--text2);margin-bottom:8px">No plot area defined</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-blue btn-sm" onclick="startPlotArea()">⬛ Draw plot area</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearPlotArea()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section" id="sec-trace">
+      <div class="panel-header" onclick="toggleSection('trace')">
+        <div class="panel-icon" style="background:rgba(139,92,246,0.2)">🪄</div>
+        <div class="panel-title">Auto-trace</div>
+        <div class="panel-chevron" id="chev-trace">▾</div>
+      </div>
+      <div class="panel-body" id="body-trace" style="display:none">
+        <div class="form-group">
+          <label>Curve color</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="color-swatch" class="color-swatch" style="background:#e5e7eb" onclick="startColorPick()"></div>
+            <span id="color-display" style="font-size:12px;color:var(--text2)">Click to pick from image</span>
+            <button class="btn btn-ghost btn-sm" onclick="setAutoDark()">Auto-dark</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tolerance <span style="color:var(--text3);font-size:11px">— higher = catches more</span></label>
+          <div class="slider-row"><input type="range" min="1" max="100" value="30" id="sl-tolerance" oninput="updateSliderVal('tolerance',this.value)"><span class="slider-val" id="val-tolerance">30</span></div>
+        </div>
+        <div class="form-group">
+          <label>Smoothing</label>
+          <div class="slider-row"><input type="range" min="1" max="30" value="5" id="sl-smoothing" oninput="updateSliderVal('smoothing',this.value)"><span class="slider-val" id="val-smoothing">5</span></div>
+        </div>
+        <div class="form-group">
+          <label>Control-point sensitivity <span style="color:var(--text3);font-size:11px">— lower = more points</span></label>
+          <div class="slider-row"><input type="range" min="1" max="50" value="10" id="sl-sensitivity" oninput="updateSliderVal('sensitivity',this.value)"><span class="slider-val" id="val-sensitivity">10</span></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-violet" onclick="runAutoTrace()">🪄 Run auto-trace</button>
+        </div>
+        <div id="trace-status" style="font-size:12px;color:var(--text2);margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="panel-section" id="sec-refine">
+      <div class="panel-header" onclick="toggleSection('refine')">
+        <div class="panel-icon" style="background:rgba(139,92,246,0.2)">✏️</div>
+        <div class="panel-title">Refine</div>
+        <div class="panel-chevron" id="chev-refine">▾</div>
+      </div>
+      <div class="panel-body" id="body-refine" style="display:none">
+        <div class="info-box">Click to add · Drag a dot to move · Shift+click a dot to delete · Drag empty space to re-trace a region.</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-violet btn-sm" onclick="setRefineMode()">✏️ Enter refine mode</button>
+          <button class="btn btn-ghost btn-sm" id="btn-undo" onclick="undo()" disabled title="Undo">↩</button>
+          <button class="btn btn-ghost btn-sm" id="btn-redo" onclick="redo()" disabled title="Redo">↪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-area">
+    <div class="canvas-toolbar">
+      <button class="btn-icon" onclick="zoomBy(-0.25)">−</button>
+      <input type="range" min="25" max="800" value="100" id="zoom-slider" style="width:80px" oninput="setZoom(this.value/100)">
+      <button class="btn-icon" onclick="zoomBy(0.25)">+</button>
+      <span class="zoom-display" id="zoom-display">100%</span>
+      <div class="toolbar-sep"></div>
+      <button class="btn-icon" onclick="fitView()">⊡</button>
+      <button class="btn-icon" onclick="resetZoom()">1:1</button>
+      <div class="toolbar-sep"></div>
+      <button class="btn-icon" id="btn-pan" onclick="togglePan()">✋</button>
+    </div>
+    <div class="canvas-viewport" id="canvas-viewport">
+      <canvas id="main-canvas"></canvas>
+      <div class="guide-banner" id="guide-banner" style="display:none"></div>
+      <div class="overlay-info" id="overlay-info">Red line = resampled data. Verify it follows the curve.</div>
+      <div id="minimap-container"><canvas id="minimap" width="160" height="120"></canvas></div>
+    </div>
+    <div class="refine-guide" id="refine-guide">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:#6d28d9;text-transform:uppercase;letter-spacing:0.06em">✏️ Refine</span>
+        <span style="font-size:12px;color:var(--text2)">🖱️ <b>Click</b> empty space — add point</span>
+        <span style="font-size:12px;color:var(--text2)">✋ <b>Drag</b> a dot — move it</span>
+        <span style="font-size:12px;color:var(--text2)">⇧ <b>Shift+click</b> a dot — delete it</span>
+        <span style="font-size:12px;color:var(--text2)">⬜ <b>Drag</b> empty space — re-trace region</span>
+        <span style="font-size:12px;color:var(--text3);margin-left:auto">Esc to exit</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-section" style="flex:1;display:flex;flex-direction:column">
+      <div class="panel-header" onclick="toggleRSection('export')">
+        <div class="panel-icon" style="background:rgba(244,63,94,0.15)">👁</div>
+        <div class="panel-title">Verify &amp; export</div>
+        <div class="panel-chevron open" id="chev-rexport">▾</div>
+      </div>
+      <div id="body-rexport" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+        <!-- Overlay & interval -->
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <label style="margin:0;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500">
+              <input type="checkbox" id="overlay-toggle" onchange="toggleOverlay(this.checked)">
+              Show overlay on image
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:10px">Red line = resampled output. Check it follows the curve.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <label style="margin:0;font-size:12px;white-space:nowrap">Depth interval</label>
+            <input type="number" id="depth-interval" value="0.02" min="0.001" step="0.001" style="width:80px;font-size:12px" oninput="updateResample()">
+            <span style="font-size:11px;color:var(--text3)" id="row-count-display"></span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-blue btn-sm" onclick="downloadCSV()">⬇ CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="copyCSV()">📋 Copy</button>
+          </div>
+        </div>
+        <!-- Data table -->
+        <div style="padding:8px 12px 4px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-shrink:0">
+          <span style="font-size:12px;font-weight:500;color:var(--text)">Resampled data</span>
+          <span id="deleted-badge" style="display:none" class="tag tag-rose">0 deleted</span>
+          <div style="margin-left:auto;display:flex;gap:4px">
+            <button class="btn btn-ghost" style="font-size:11px;padding:2px 7px" onclick="restoreDeleted()">Restore</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:2px 7px" onclick="resetOverrides()">Reset overrides</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);padding:4px 12px;flex-shrink:0">Click a value cell to override it.</div>
+        <div class="table-wrap" style="flex:1;overflow-y:auto">
+          <table class="data-table">
+            <thead><tr><th>Depth</th><th>Value</th><th style="width:40px"></th></tr></thead>
+            <tbody id="data-tbody"></tbody>
+          </table>
+        </div>
+        <!-- Add row -->
+        <div style="padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Add control point</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+            <input type="number" id="add-depth" placeholder="Depth" step="any" style="font-size:12px">
+            <input type="number" id="add-value" placeholder="Value" step="any" style="font-size:12px">
+          </div>
+          <button class="btn btn-emerald btn-sm" onclick="addManualRow()" style="width:100%">+ Add point</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-help" style="display:none;flex:1;overflow-y:auto">
+  <div class="help-content">
+    <h2>How to use CPT Plot Digitizer</h2>
+    <p>Extract digital data from a CPT plot image in 7 steps. Everything runs in your browser.</p>
+    <div class="help-step"><div class="help-step-num" style="background:#dbeafe;color:#1d4ed8">1</div><div class="help-step-body"><div class="help-step-title">📷 Upload image</div><div class="help-step-desc">Upload a PNG or JPG of your CPT plot. The image is never sent anywhere.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#d1fae5;color:#065f46">2</div><div class="help-step-body"><div class="help-step-title">🎯 Calibrate axes</div><div class="help-step-desc">Place two known points. Each uses two clicks: first sets X position, second sets depth. Enter the real values and click Apply.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#dbeafe;color:#1d4ed8">3</div><div class="help-step-body"><div class="help-step-title">⬜ Mark plot area</div><div class="help-step-desc">Click two diagonal corners bounding the curve area.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#ede9fe;color:#6d28d9">4</div><div class="help-step-body"><div class="help-step-title">🪄 Auto-trace</div><div class="help-step-desc">Pick the curve color (or Auto-dark), adjust sliders, hit Run.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#ede9fe;color:#6d28d9">5</div><div class="help-step-body"><div class="help-step-title">✏️ Refine</div><div class="help-step-desc">Move: drag a teal dot. Add: click empty space. Delete: click a dot. Region: drag a box to re-trace that area.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#ffe4e6;color:#be123c">6</div><div class="help-step-body"><div class="help-step-title">👁 Verify</div><div class="help-step-desc">Toggle "Show overlay" to see resampled data as a red line over the image. Click table cells to override values.</div></div></div>
+    <div class="help-step"><div class="help-step-num" style="background:#d1fae5;color:#065f46">7</div><div class="help-step-body"><div class="help-step-title">⬇ Export</div><div class="help-step-desc">Download CSV or copy to clipboard.</div></div></div>
+    <h3>Tips</h3>
+    <p>• Zoom in when placing calibration points for accuracy.</p>
+    <p>• Pick calibration points far apart for best results.</p>
+    <p>• If the tracer catches gridlines, lower tolerance and use Refine Region on problem areas.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────
+const state = {
+  imageLoaded: false, imgW: 0, imgH: 0, imageBitmap: null,
+  calibration: { A: null, B: null },
+  plotRect: null, curveColor: null,
+  tolerance: 30, smoothing: 5, cpSensitivity: 10, depthInterval: 0.02,
+  trace: [], controlPoints: [],
+  overrides: {}, added: [], deleted: {},
+  history: [], historyIdx: -1,
+  overlay: false, resampledRows: [],
+};
+
+let mode = 'idle';
+let calibTarget = null, calibLockedX = null, plotCorner1 = null;
+let draggingCP = null, hoveredCP = null;
+let regionStart = null, regionRect = null;
+let overlayWasOn = false, editingCell = null;
+let mouseImgPos = { x: 0, y: 0 };
+let zoom = 1, panX = 0, panY = 0;
+let isPanning = false, panStart = { x:0, y:0 }, panOrigin = { x:0, y:0 };
+let canvas, ctx, minimap, mctx, viewport, offCtx = null;
+
+// ── INIT ───────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  canvas = document.getElementById('main-canvas');
+  ctx = canvas.getContext('2d');
+  minimap = document.getElementById('minimap');
+  mctx = minimap.getContext('2d');
+  viewport = document.getElementById('canvas-viewport');
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', onMouseLeave);
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  document.addEventListener('keydown', onKeyDown);
+  minimap.parentElement.addEventListener('mousedown', onMinimapClick);
+  renderCanvas();
+  updateNextStep();
+});
+
+// ── PAGE NAV ───────────────────────────────────────────────────────────
+function showPage(p) {
+  document.getElementById('page-digitizer').style.display = p==='digitizer'?'flex':'none';
+  document.getElementById('page-help').style.display = p==='help'?'flex':'none';
+  document.getElementById('nav-digitizer').classList.toggle('active', p==='digitizer');
+  document.getElementById('nav-help').classList.toggle('active', p==='help');
+}
+
+// ── PANEL TOGGLES ──────────────────────────────────────────────────────
+function toggleSection(id) {
+  const body = document.getElementById('body-'+id), chev = document.getElementById('chev-'+id);
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  chev.classList.toggle('open', !open);
+}
+function toggleRSection(id) {
+  const body = document.getElementById('body-r'+id), chev = document.getElementById('chev-r'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'flex';
+  chev.classList.toggle('open', !open);
+}
+function setPanels(open, close) {
+  open.forEach(id => {
+    const b=document.getElementById('body-'+id), c=document.getElementById('chev-'+id);
+    if(b) b.style.display = id==='rexport' ? 'flex' : 'block';
+    if(c) c.classList.add('open');
+  });
+  close.forEach(id => {
+    const b=document.getElementById('body-'+id), c=document.getElementById('chev-'+id);
+    if(b) b.style.display='none';
+    if(c) c.classList.remove('open');
+  });
+}
+
+// ── FILE UPLOAD ────────────────────────────────────────────────────────
+function handleFileUpload(input) {
+  const file = input.files[0]; input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    document.getElementById('upload-error').textContent = 'Please select an image file.';
+    document.getElementById('upload-error').style.display = 'block'; return;
+  }
+  document.getElementById('upload-error').style.display = 'none';
+  const img = new Image();
+  img.onload = () => {
+    state.imageLoaded = true; state.imgW = img.width; state.imgH = img.height; state.imageBitmap = img;
+    const oc = document.createElement('canvas'); oc.width = img.width; oc.height = img.height;
+    offCtx = oc.getContext('2d'); offCtx.drawImage(img, 0, 0);
+    document.getElementById('image-info').style.display = 'block';
+    document.getElementById('image-info').textContent = `${img.width} × ${img.height} px`;
+    fitView(); updateNextStep(); renderCanvas(); renderMinimap();
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// ── CALIBRATION ────────────────────────────────────────────────────────
+function startCalibPick(point) {
+  if (!state.imageLoaded) { toast('Upload an image first'); return; }
+  mode = 'calib-x'; calibTarget = point; calibLockedX = null;
+  showBanner(`Click 1/2 — Point ${point}: click on an X-axis tick (only X recorded)`, point==='A'?'green':'amber');
+  updateCursor(); renderCanvas();
+}
+function applyCalib() {
+  const ax=parseFloat(document.getElementById('calib-ax').value);
+  const ay=parseFloat(document.getElementById('calib-ay').value);
+  const bx=parseFloat(document.getElementById('calib-bx').value);
+  const by=parseFloat(document.getElementById('calib-by').value);
+  if (isNaN(ax)||isNaN(ay)||isNaN(bx)||isNaN(by)) { toast('Enter values for both points'); return; }
+  if (!state.calibration.A||!state.calibration.B) { toast('Pick both points on image first'); return; }
+  state.calibration.A.x=ax; state.calibration.A.depth=ay;
+  state.calibration.B.x=bx; state.calibration.B.depth=by;
+  document.getElementById('calib-result').textContent=`Calibrated! A=(${ax},${ay}) B=(${bx},${by})`;
+  updateNextStep(); renderCanvas();
+}
+function clearCalib() {
+  state.calibration={A:null,B:null};
+  ['a','b'].forEach(k => { document.getElementById(`calib-${k}-status`).textContent='not set'; document.getElementById(`calib-${k}-status`).className='tag tag-blue'; });
+  document.getElementById('calib-result').textContent='';
+  updateNextStep(); renderCanvas();
+}
+
+// ── MAPPING ────────────────────────────────────────────────────────────
+// Always returns {value, depth} — no exceptions in naming
+function pixToData(px, py) {
+  const {A,B} = state.calibration;
+  if (!A||!B||!A.px||!B.px) return null;
+  const dPxX = B.px.x - A.px.x, dPxY = B.px.y - A.px.y;
+  if (Math.abs(dPxX)<1 || Math.abs(dPxY)<1) return null;
+  return {
+    value: A.x + (px - A.px.x) * (B.x - A.x) / dPxX,
+    depth: A.depth + (py - A.px.y) * (B.depth - A.depth) / dPxY
+  };
+}
+// Takes (value, depth), returns {x, y} in image pixel space
+function dataToPix(value, depth) {
+  const {A,B} = state.calibration;
+  if (!A||!B||!A.px||!B.px) return null;
+  const dVal=B.x-A.x, dDep=B.depth-A.depth;
+  const dPxX=B.px.x-A.px.x, dPxY=B.px.y-A.px.y;
+  if (Math.abs(dPxX)<1||Math.abs(dPxY)<1||Math.abs(dVal)<1e-9||Math.abs(dDep)<1e-9) return null;
+  return {
+    x: A.px.x + (value - A.x) * dPxX / dVal,
+    y: A.px.y + (depth - A.depth) * dPxY / dDep
+  };
+}
+
+// ── PLOT AREA ──────────────────────────────────────────────────────────
+function startPlotArea() {
+  if (!state.imageLoaded) { toast('Upload an image first'); return; }
+  mode='plotarea1'; plotCorner1=null; state.plotRect=null;
+  showBanner('Click first corner of the plot area','blue');
+  updateCursor(); renderCanvas();
+}
+function clearPlotArea() {
+  state.plotRect=null;
+  document.getElementById('plot-area-status').textContent='No plot area defined';
+  renderCanvas();
+}
+
+// ── COLOR ──────────────────────────────────────────────────────────────
+function startColorPick() {
+  if (!state.imageLoaded) { toast('Upload an image first'); return; }
+  mode='colorpick'; showBanner('Click on the curve to pick its color','violet'); updateCursor();
+}
+function setAutoDark() {
+  state.curveColor=[30,30,30];
+  document.getElementById('color-swatch').style.background='rgb(30,30,30)';
+  document.getElementById('color-display').textContent='Auto-dark';
+}
+function updateSliderVal(name,v) {
+  document.getElementById('val-'+name).textContent=v;
+  if(name==='tolerance') state.tolerance=parseInt(v);
+  if(name==='smoothing') state.smoothing=parseInt(v);
+  if(name==='sensitivity') state.cpSensitivity=parseInt(v);
+}
+
+// ── AUTO-TRACE ─────────────────────────────────────────────────────────
+function runAutoTrace() {
+  if (!state.imageLoaded) { toast('Upload an image first'); return; }
+  if (!state.plotRect) { toast('Define the plot area first'); return; }
+  if (!state.calibration.A||!state.calibration.B) { toast('Calibrate axes first'); return; }
+  const A=state.calibration.A, B=state.calibration.B;
+  if (A.x===undefined||B.x===undefined) { toast('Apply calibration values first'); return; }
+  if (!offCtx) { toast('Image not ready — re-upload'); return; }
+  if (!state.curveColor) setAutoDark();
+
+  const statusEl = document.getElementById('trace-status');
+  statusEl.textContent = 'Tracing…';
+
+  const r=state.plotRect;
+  const x0=Math.max(0,Math.round(Math.min(r.x0,r.x1)));
+  const y0=Math.max(0,Math.round(Math.min(r.y0,r.y1)));
+  const x1=Math.min(state.imgW-1,Math.round(Math.max(r.x0,r.x1)));
+  const y1=Math.min(state.imgH-1,Math.round(Math.max(r.y0,r.y1)));
+  if (x1<=x0||y1<=y0) { toast('Plot area too small'); return; }
+
+  // Verify pixel data readable
+  offCtx.drawImage(state.imageBitmap,0,0); // ensure fresh
+  const testP=offCtx.getImageData(Math.round((x0+x1)/2),Math.round((y0+y1)/2),1,1).data;
+  if (testP[3]===0) { toast('Cannot read image pixels — try Chrome'); return; }
+
+  const imgData=offCtx.getImageData(x0,y0,x1-x0+1,y1-y0+1);
+  const W=x1-x0+1, H=y1-y0+1;
+  const [cr,cg,cb]=state.curveColor, tol=state.tolerance;
+  const rawPx=[];
+  let prevCol=Math.round(W/2);
+
+  for (let row=0;row<H;row++) {
+    const candidates=[];
+    for (let col=0;col<W;col++) {
+      const i=(row*W+col)*4;
+      if (Math.abs(imgData.data[i]-cr)+Math.abs(imgData.data[i+1]-cg)+Math.abs(imgData.data[i+2]-cb)<tol*3)
+        candidates.push(col);
+    }
+    if (!candidates.length||candidates.length>W*0.7) continue;
+    // cluster
+    const clusters=[]; let run=[candidates[0]];
+    for (let i=1;i<candidates.length;i++) {
+      if(candidates[i]-candidates[i-1]<=4) run.push(candidates[i]);
+      else { clusters.push(run); run=[candidates[i]]; }
+    }
+    clusters.push(run);
+    let best=clusters[0],bestD=Infinity;
+    for (const cl of clusters) {
+      const c=cl[Math.floor(cl.length/2)], d=Math.abs(c-prevCol);
+      if(d<bestD){bestD=d;best=cl;}
+    }
+    const col=best[Math.floor(best.length/2)];
+    prevCol=col;
+    rawPx.push({px:x0+col,py:y0+row});
+  }
+
+  if (rawPx.length<2) {
+    statusEl.textContent=`Nothing found (tol=${tol}). Try increasing tolerance or re-pick color.`;
+    toast('No curve found — increase tolerance or re-pick color'); return;
+  }
+
+  // smooth
+  const win=Math.max(1,state.smoothing);
+  const smoothPx=rawPx.map((pt,i)=>{
+    let sum=0,count=0;
+    for(let j=Math.max(0,i-win);j<=Math.min(rawPx.length-1,i+win);j++){sum+=rawPx[j].px;count++;}
+    return{px:sum/count,py:pt.py};
+  });
+
+  // convert to data space
+  const tracePts=smoothPx.map(pt=>pixToData(pt.px,pt.py)).filter(Boolean);
+  if(tracePts.length<2){toast('Calibration mapping failed');statusEl.textContent='Mapping failed. Check calibration.';return;}
+
+  state.trace=tracePts;
+  state.controlPoints=extractControlPointsPx(smoothPx,state.cpSensitivity);
+  statusEl.textContent=`✓ ${rawPx.length} px → ${tracePts.length} pts → ${state.controlPoints.length} control pts`;
+  pushHistory(); resample(); renderCanvas(); renderMinimap(); updateNextStep();
+}
+
+function extractControlPointsPx(pixPts, sensitivity) {
+  if (pixPts.length<3) {
+    return pixPts.map((p,i)=>{
+      const d=pixToData(p.px,p.py);
+      return d?{depth:d.depth,value:d.value,id:'cp'+i+'_'+Date.now()}:null;
+    }).filter(Boolean);
+  }
+  const angleDeg=(sensitivity/50)*29+1;
+  const cosThresh=Math.cos(angleDeg*Math.PI/180);
+  const kept=[pixPts[0]];
+  for(let i=1;i<pixPts.length-1;i++){
+    const pv=pixPts[i-1],cu=pixPts[i],nx=pixPts[i+1];
+    const ax=cu.px-pv.px,ay=cu.py-pv.py,bx=nx.px-cu.px,by=nx.py-cu.py;
+    const lA=Math.sqrt(ax*ax+ay*ay)||1,lB=Math.sqrt(bx*bx+by*by)||1;
+    if((ax*bx+ay*by)/(lA*lB)<cosThresh) kept.push(cu);
+  }
+  kept.push(pixPts[pixPts.length-1]);
+  // ensure min density
+  if(kept.length<10){
+    const step=Math.max(1,Math.floor(pixPts.length/10));
+    for(let i=step;i<pixPts.length-1;i+=step)
+      if(!kept.some(k=>Math.abs(k.py-pixPts[i].py)<step*0.5)) kept.push(pixPts[i]);
+    kept.sort((a,b)=>a.py-b.py);
+  }
+  // FIXED: use d.value not d.x
+  return kept.map((p,i)=>{
+    const d=pixToData(p.px,p.py);
+    return d?{depth:d.depth,value:d.value,id:'cp'+i+'_'+Date.now()}:null;
+  }).filter(Boolean);
+}
+
+// ── REBUILD TRACE FROM CPs ─────────────────────────────────────────────
+function rebuildTraceFromCP() {
+  if(state.controlPoints.length<1) return;
+  if(state.controlPoints.length===1){state.trace=[{...state.controlPoints[0]}];return;}
+  const sorted=[...state.controlPoints].sort((a,b)=>a.depth-b.depth);
+  const dense=[];
+  for(let i=0;i<sorted.length-1;i++){
+    const a=sorted[i],b=sorted[i+1];
+    const steps=Math.min(200,Math.max(2,Math.round(Math.abs(b.depth-a.depth)/state.depthInterval)));
+    for(let s=0;s<=steps;s++){
+      const t=s/steps;
+      dense.push({depth:a.depth+t*(b.depth-a.depth),value:a.value+t*(b.value-a.value)});
+    }
+  }
+  state.trace=dense;
+}
+
+// ── RESAMPLE ───────────────────────────────────────────────────────────
+function resample() {
+  if(state.trace.length<2){state.resampledRows=[];renderDataTable();updateRowCount();return;}
+  const sorted=[...state.trace].sort((a,b)=>a.depth-b.depth);
+  const minD=sorted[0].depth,maxD=sorted[sorted.length-1].depth;
+  const iv=state.depthInterval, rows=[];
+  for(let d=minD;d<=maxD+0.0001;d=Math.round((d+iv)*1e6)/1e6){
+    const rd=Math.round(d*1e6)/1e6, key=rd.toFixed(6);
+    if(state.deleted[key]) continue;
+    let value;
+    if(state.overrides[key]!==undefined){value=state.overrides[key];}
+    else{
+      let lo=null,hi=null;
+      for(const pt of sorted){if(pt.depth<=rd)lo=pt;else if(!hi)hi=pt;}
+      if(lo&&hi){const t=(rd-lo.depth)/(hi.depth-lo.depth);value=lo.value+t*(hi.value-lo.value);}
+      else if(lo)value=lo.value;
+      else if(hi)value=hi.value;
+      else continue;
+    }
+    rows.push({depth:rd,value,kind:state.overrides[key]!==undefined?'overridden':'auto'});
+  }
+  for(const a of state.added){
+    const key=a.depth.toFixed(6);
+    if(state.deleted[key]) continue;
+    if(!rows.find(r=>r.depth===a.depth)) rows.push({depth:a.depth,value:a.value,kind:'added'});
+  }
+  rows.sort((a,b)=>a.depth-b.depth);
+  state.resampledRows=rows;
+  renderDataTable(); updateRowCount();
+}
+function updateResample(){
+  const v=parseFloat(document.getElementById('depth-interval').value);
+  if(v>0.0001)state.depthInterval=v;
+  resample(); renderCanvas();
+}
+function updateRowCount(){
+  document.getElementById('row-count-display').textContent=`${state.resampledRows.length} rows`;
+}
+
+// ── DATA TABLE ─────────────────────────────────────────────────────────
+function renderDataTable(){
+  const tbody=document.getElementById('data-tbody');
+  if(!state.resampledRows.length){tbody.innerHTML='<tr><td colspan="3" style="color:var(--text3);text-align:center;padding:20px">No data yet</td></tr>';return;}
+  const delCount=Object.keys(state.deleted).length;
+  document.getElementById('deleted-badge').textContent=delCount+' deleted';
+  document.getElementById('deleted-badge').style.display=delCount>0?'inline-flex':'none';
+  tbody.innerHTML='';
+  for(const row of state.resampledRows){
+    const key=row.depth.toFixed(6);
+    const tr=document.createElement('tr'); tr.className=row.kind;
+    const tdD=document.createElement('td'); tdD.textContent=row.depth.toFixed(4);
+    const tdV=document.createElement('td'); tdV.style.cursor='pointer';
+    if(editingCell===key){
+      tdV.innerHTML=`<div class="inline-edit"><input type="number" id="edit-${key}" value="${row.value.toFixed(4)}" step="any" style="width:70px;font-size:11px" onkeydown="onEditKey(event,'${key}')"><button class="btn-icon" style="padding:2px 4px;font-size:10px" onclick="commitEdit('${key}')">✓</button><button class="btn-icon" style="padding:2px 4px;font-size:10px" onclick="cancelEdit()">✗</button></div>`;
+    }else{
+      tdV.textContent=row.value.toFixed(4);
+      if(row.kind==='overridden')tdV.innerHTML+=' <span class="kind-badge overridden">📌</span>';
+      if(row.kind==='added')tdV.innerHTML+=' <span class="kind-badge added">+</span>';
+      tdV.onclick=()=>{editingCell=key;renderDataTable();setTimeout(()=>document.getElementById('edit-'+key)?.focus(),50);};
+    }
+    const tdA=document.createElement('td');
+    const db=document.createElement('button'); db.className='btn-icon'; db.style.fontSize='10px'; db.title='Delete'; db.innerHTML='🗑'; db.onclick=()=>deleteRow(key);
+    tdA.appendChild(db);
+    if(row.kind==='overridden'){const rb=document.createElement('button');rb.className='btn-icon';rb.style.fontSize='10px';rb.innerHTML='↺';rb.onclick=()=>{delete state.overrides[key];resample();};tdA.appendChild(rb);}
+    tr.append(tdD,tdV,tdA); tbody.appendChild(tr);
+  }
+}
+function onEditKey(e,key){if(e.key==='Enter')commitEdit(key);if(e.key==='Escape')cancelEdit();}
+function commitEdit(key){const inp=document.getElementById('edit-'+key);if(!inp)return;const v=parseFloat(inp.value);if(!isNaN(v))state.overrides[key]=v;editingCell=null;resample();}
+function cancelEdit(){editingCell=null;renderDataTable();}
+function deleteRow(key){state.deleted[key]=true;resample();renderCanvas();}
+function restoreDeleted(){state.deleted={};resample();renderCanvas();}
+function resetOverrides(){state.overrides={};resample();}
+function addManualRow(){
+  const d=parseFloat(document.getElementById('add-depth').value);
+  const v=parseFloat(document.getElementById('add-value').value);
+  if(isNaN(d)||isNaN(v)){toast('Enter depth and value');return;}
+  pushHistory();
+  const key=d.toFixed(6);
+  if(state.deleted[key])delete state.deleted[key];
+  state.added=state.added.filter(a=>a.depth!==d);
+  state.added.push({depth:d,value:v});
+  state.controlPoints=state.controlPoints.filter(cp=>Math.abs(cp.depth-d)>0.001);
+  state.controlPoints.push({depth:d,value:v,id:'added_'+Date.now()});
+  state.controlPoints.sort((a,b)=>a.depth-b.depth);
+  rebuildTraceFromCP(); resample(); renderCanvas();
+  document.getElementById('add-depth').value=''; document.getElementById('add-value').value='';
+}
+
+// ── REFINE MODE ────────────────────────────────────────────────────────
+function enterMode(newMode) {
+  const refining = newMode === 'refine';
+  if(refining&&state.overlay){overlayWasOn=true;state.overlay=false;document.getElementById('overlay-toggle').checked=false;}
+  if(!refining&&overlayWasOn){overlayWasOn=false;state.overlay=true;document.getElementById('overlay-toggle').checked=true;}
+  mode=newMode;
+  updateCursor();
+  document.getElementById('refine-guide').classList.toggle('visible', refining);
+}
+
+function setRefineMode(){
+  if(!state.controlPoints.length){toast('Run auto-trace first');return;}
+  enterMode('refine');
+  regionStart=null; regionRect=null; draggingCP=null;
+  mouseDownImg=null; mouseDownCanvas=null; dragCandidate=null; isDraggingRegion=false;
+  renderCanvas();
+}
+function exitRefineMode(){enterMode('idle');hideBanner();renderCanvas();}
+
+// ── HISTORY ────────────────────────────────────────────────────────────
+function pushHistory(){
+  const frame=JSON.stringify({trace:state.trace,controlPoints:state.controlPoints,overrides:state.overrides,added:state.added,deleted:state.deleted});
+  state.history=state.history.slice(0,state.historyIdx+1);
+  state.history.push(frame);
+  if(state.history.length>50)state.history.shift();
+  state.historyIdx=state.history.length-1;
+  document.getElementById('btn-undo').disabled=state.historyIdx<=0;
+  document.getElementById('btn-redo').disabled=state.historyIdx>=state.history.length-1;
+}
+function undo(){if(state.historyIdx<=0)return;state.historyIdx--;Object.assign(state,JSON.parse(state.history[state.historyIdx]));resample();renderCanvas();document.getElementById('btn-undo').disabled=state.historyIdx<=0;document.getElementById('btn-redo').disabled=false;}
+function redo(){if(state.historyIdx>=state.history.length-1)return;state.historyIdx++;Object.assign(state,JSON.parse(state.history[state.historyIdx]));resample();renderCanvas();document.getElementById('btn-redo').disabled=state.historyIdx>=state.history.length-1;document.getElementById('btn-undo').disabled=false;}
+
+// ── OVERLAY ────────────────────────────────────────────────────────────
+function toggleOverlay(on){state.overlay=on;document.getElementById('overlay-info').style.display=on?'block':'none';renderCanvas();}
+
+// ── EXPORT ─────────────────────────────────────────────────────────────
+function getCSV(){if(!state.resampledRows.length)return'';return'depth,value\n'+state.resampledRows.map(r=>`${r.depth.toFixed(6)},${r.value.toFixed(6)}`).join('\n');}
+function downloadCSV(){const csv=getCSV();if(!csv){toast('No data');return;}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='cpt-data.csv';a.click();toast('CSV downloaded');}
+function copyCSV(){const csv=getCSV();if(!csv){toast('No data');return;}navigator.clipboard.writeText(csv).then(()=>toast('Copied'));}
+
+// ── ZOOM/PAN ───────────────────────────────────────────────────────────
+function setZoom(z,cx,cy){
+  const old=zoom; zoom=Math.min(8,Math.max(0.25,z));
+  document.getElementById('zoom-slider').value=Math.round(zoom*100);
+  document.getElementById('zoom-display').textContent=Math.round(zoom*100)+'%';
+  if(cx!==undefined){panX=cx-(cx-panX)*(zoom/old);panY=cy-(cy-panY)*(zoom/old);}
+  clampPan(); renderCanvas(); renderMinimap();
+}
+function zoomBy(d){setZoom(zoom+d,viewport.clientWidth/2,viewport.clientHeight/2);}
+function resetZoom(){setZoom(1,viewport.clientWidth/2,viewport.clientHeight/2);}
+function fitView(){
+  if(!state.imageLoaded)return;
+  const vw=viewport.clientWidth,vh=viewport.clientHeight;
+  zoom=Math.min(vw/state.imgW,vh/state.imgH)*0.95;
+  panX=(vw-state.imgW*zoom)/2; panY=(vh-state.imgH*zoom)/2;
+  document.getElementById('zoom-slider').value=Math.round(zoom*100);
+  document.getElementById('zoom-display').textContent=Math.round(zoom*100)+'%';
+  clampPan(); renderCanvas(); renderMinimap();
+}
+function clampPan(){
+  if(!state.imageLoaded)return;
+  const vw=viewport.clientWidth,vh=viewport.clientHeight;
+  panX=Math.max(Math.min(0,vw-state.imgW*zoom),Math.min(0,panX));
+  panY=Math.max(Math.min(0,vh-state.imgH*zoom),Math.min(0,panY));
+}
+function togglePan(){
+  if(mode==='pan'){enterMode('idle');document.getElementById('btn-pan').classList.remove('active');}
+  else{enterMode('pan');document.getElementById('btn-pan').classList.add('active');}
+}
+function canvasToImg(cx,cy){return{x:(cx-panX)/zoom,y:(cy-panY)/zoom};}
+
+// ── FIND NEAREST CP ────────────────────────────────────────────────────
+// Returns the closest CP within a generous hit radius (image-pixel units)
+function findNearestCP(imgX,imgY){
+  if(!state.controlPoints.length) return null;
+  const hitR=Math.max(20,18/zoom); // generous — at least 20 image-px regardless of zoom
+  let best=null,bestD=Infinity;
+  for(const cp of state.controlPoints){
+    const px=dataToPix(cp.value,cp.depth);
+    if(!px) continue;
+    const d=Math.hypot(px.x-imgX,px.y-imgY);
+    if(d<hitR&&d<bestD){bestD=d;best=cp;}
+  }
+  return best;
+}
+
+// ── MOUSE EVENTS ───────────────────────────────────────────────────────
+const DRAG_THRESHOLD = 5;
+let mouseDownImg = null;
+let mouseDownCanvas = null;
+let dragCandidate = null;
+let isDraggingRegion = false;
+
+function onMouseDown(e){
+  if(e.button!==0&&e.button!==1) return;
+  const rect=canvas.getBoundingClientRect();
+  const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+  const img=canvasToImg(cx,cy);
+
+  if(e.button===1||mode==='pan'){
+    isPanning=true; panStart={x:e.clientX,y:e.clientY}; panOrigin={x:panX,y:panY};
+    canvas.style.cursor='grabbing'; e.preventDefault(); return;
+  }
+  if(mode==='calib-x'){
+    calibLockedX=img.x;
+    showBanner(`Click 2/2 — Point ${calibTarget}: X locked, now click a depth tick (only Y recorded)`,calibTarget==='A'?'green':'amber');
+    mode='calib-depth'; updateCursor(); renderCanvas(); return;
+  }
+  if(mode==='calib-depth'){
+    state.calibration[calibTarget]={px:{x:calibLockedX,y:img.y},x:0,depth:0};
+    document.getElementById(`calib-${calibTarget.toLowerCase()}-status`).textContent='✓ picked';
+    document.getElementById(`calib-${calibTarget.toLowerCase()}-status`).className='tag tag-green';
+    mode='idle'; hideBanner(); calibLockedX=null; updateCursor(); renderCanvas(); return;
+  }
+  if(mode==='plotarea1'){
+    plotCorner1={x:img.x,y:img.y}; mode='plotarea2';
+    showBanner('Click second corner of the plot area','blue'); updateCursor(); renderCanvas(); return;
+  }
+  if(mode==='plotarea2'){
+    state.plotRect={x0:plotCorner1.x,y0:plotCorner1.y,x1:img.x,y1:img.y};
+    const r=state.plotRect;
+    document.getElementById('plot-area-status').textContent=`${Math.round(Math.abs(r.x1-r.x0))}×${Math.round(Math.abs(r.y1-r.y0))}px defined`;
+    mode='idle'; hideBanner(); updateCursor(); updateNextStep(); renderCanvas(); return;
+  }
+  if(mode==='colorpick'){
+    const ix=Math.round(img.x),iy=Math.round(img.y);
+    if(ix>=0&&ix<state.imgW&&iy>=0&&iy<state.imgH&&offCtx){
+      const d=offCtx.getImageData(ix,iy,1,1).data;
+      state.curveColor=[d[0],d[1],d[2]];
+      document.getElementById('color-swatch').style.background=`rgb(${d[0]},${d[1]},${d[2]})`;
+      document.getElementById('color-display').textContent=`rgb(${d[0]},${d[1]},${d[2]})`;
+    }
+    mode='idle'; hideBanner(); updateCursor(); return;
+  }
+
+  // ── UNIFIED REFINE ──
+  if(mode==='refine'){
+    mouseDownImg={x:img.x,y:img.y};
+    mouseDownCanvas={x:cx,y:cy};
+    isDraggingRegion=false; draggingCP=null; dragCandidate=null;
+    regionStart=null; regionRect=null;
+
+    const cp=findNearestCP(img.x,img.y);
+    // Shift+click → delete immediately
+    if(e.shiftKey){
+      if(cp){ pushHistory(); state.controlPoints=state.controlPoints.filter(p=>p.id!==cp.id); rebuildTraceFromCP(); resample(); renderCanvas(); }
+      else toast('Shift+click on a teal dot to delete it');
+      mouseDownImg=null; return;
+    }
+    // Near a CP → candidate for drag
+    dragCandidate = cp || null;
+    return;
+  }
+}
+
+function onMouseMove(e){
+  const rect=canvas.getBoundingClientRect();
+  const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+  const img=canvasToImg(cx,cy);
+  mouseImgPos={x:img.x,y:img.y};
+
+  if(isPanning){panX=panOrigin.x+(e.clientX-panStart.x);panY=panOrigin.y+(e.clientY-panStart.y);clampPan();renderCanvas();renderMinimap();return;}
+
+  if(mode==='refine'&&mouseDownCanvas){
+    const dragDist=Math.hypot(cx-mouseDownCanvas.x,cy-mouseDownCanvas.y);
+    // Crossed drag threshold — commit to CP drag or region drag
+    if(!draggingCP&&!isDraggingRegion&&dragDist>DRAG_THRESHOLD){
+      if(dragCandidate){ draggingCP=dragCandidate; dragCandidate=null; }
+      else { isDraggingRegion=true; regionStart=mouseDownImg; }
+    }
+    if(draggingCP){
+      const mapped=pixToData(img.x,img.y);
+      if(mapped){draggingCP.depth=mapped.depth;draggingCP.value=mapped.value;rebuildTraceFromCP();resample();}
+      updateCursor(); renderCanvas(); return;
+    }
+    if(isDraggingRegion&&regionStart){
+      regionRect={x0:regionStart.x,y0:regionStart.y,x1:img.x,y1:img.y};
+      renderCanvas(); return;
+    }
+  }
+
+  if(['plotarea2','calib-depth'].includes(mode)) renderCanvas();
+
+  // Hover detection for CP proximity
+  if(state.controlPoints.length>0){
+    const cp=findNearestCP(img.x,img.y);
+    if(cp!==hoveredCP){hoveredCP=cp;updateCursor();renderCanvas();}
+  } else if(hoveredCP){hoveredCP=null;updateCursor();renderCanvas();}
+}
+
+function onMouseUp(e){
+  if(isPanning){isPanning=false;updateCursor();return;}
+
+  if(mode==='refine'&&mouseDownCanvas){
+    const rect=canvas.getBoundingClientRect();
+    const cx=e.clientX-rect.left, cy=e.clientY-rect.top;
+    const dragDist=Math.hypot(cx-mouseDownCanvas.x,cy-mouseDownCanvas.y);
+
+    if(draggingCP){
+      // Commit move
+      state.controlPoints.sort((a,b)=>a.depth-b.depth);
+      rebuildTraceFromCP(); resample(); pushHistory();
+      draggingCP=null;
+    } else if(isDraggingRegion&&regionRect){
+      // Commit region refine
+      runRefineRegion();
+    } else if(dragDist<=DRAG_THRESHOLD&&!e.shiftKey){
+      // Clean click on empty space → add point
+      const img=canvasToImg(cx,cy);
+      const mapped=pixToData(img.x,img.y);
+      if(mapped){
+        pushHistory();
+        state.controlPoints.push({depth:mapped.depth,value:mapped.value,id:'cp_'+Date.now()});
+        state.controlPoints.sort((a,b)=>a.depth-b.depth);
+        rebuildTraceFromCP(); resample();
+      }
+    }
+    mouseDownImg=null; mouseDownCanvas=null; dragCandidate=null; isDraggingRegion=false;
+    regionStart=null; regionRect=null;
+    updateCursor(); renderCanvas(); return;
+  }
+}
+
+function onMouseLeave(){
+  if(mode==='refine'&&draggingCP){
+    state.controlPoints.sort((a,b)=>a.depth-b.depth);
+    rebuildTraceFromCP(); resample(); pushHistory(); draggingCP=null;
+  }
+  mouseDownImg=null; mouseDownCanvas=null; dragCandidate=null; isDraggingRegion=false;
+  regionStart=null; regionRect=null;
+  isPanning=false; updateCursor();
+}
+
+function onWheel(e){
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  if(e.shiftKey){panX-=e.deltaY;clampPan();renderCanvas();renderMinimap();return;}
+  setZoom(zoom+(e.deltaY>0?-0.1:0.1)*zoom,e.clientX-rect.left,e.clientY-rect.top);
+}
+function onKeyDown(e){
+  if(e.key==='Escape')exitRefineMode();
+  if((e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.shiftKey?redo():undo();}
+}
+function onMinimapClick(e){
+  const rect=minimap.getBoundingClientRect();
+  const scale=minimap.width/state.imgW;
+  const ix=(e.clientX-rect.left)/scale,iy=(e.clientY-rect.top)/scale;
+  panX=viewport.clientWidth/2-ix*zoom; panY=viewport.clientHeight/2-iy*zoom;
+  clampPan(); renderCanvas(); renderMinimap();
+}
+
+// ── CURSOR ─────────────────────────────────────────────────────────────
+function updateCursor(){
+  let c='default';
+  if(mode==='pan') c=isPanning?'grabbing':'grab';
+  else if(['calib-x','plotarea1','plotarea2','colorpick'].includes(mode)) c='crosshair';
+  else if(mode==='calib-depth') c='ns-resize';
+  else if(mode==='refine'){
+    if(draggingCP) c='grabbing';
+    else if(isDraggingRegion) c='crosshair';
+    else if(hoveredCP) c='grab';
+    else c='copy';
+  }
+  canvas.style.cursor=c;
+}
+
+// ── REFINE REGION ──────────────────────────────────────────────────────
+function runRefineRegion(){
+  if(!regionRect||!state.plotRect||!offCtx) return;
+  const rr=regionRect,pr=state.plotRect;
+  const rx0=Math.max(0,Math.round(Math.max(Math.min(rr.x0,rr.x1),Math.min(pr.x0,pr.x1))));
+  const rx1=Math.min(state.imgW-1,Math.round(Math.min(Math.max(rr.x0,rr.x1),Math.max(pr.x0,pr.x1))));
+  const ry0=Math.max(0,Math.round(Math.max(Math.min(rr.y0,rr.y1),Math.min(pr.y0,pr.y1))));
+  const ry1=Math.min(state.imgH-1,Math.round(Math.min(Math.max(rr.y0,rr.y1),Math.max(pr.y0,pr.y1))));
+  if(rx1<=rx0||ry1<=ry0){toast('Region is outside the plot area');return;}
+  if(!state.curveColor) return;
+  const data=offCtx.getImageData(rx0,ry0,rx1-rx0+1,ry1-ry0+1);
+  const W=rx1-rx0+1;
+  const [cr,cg,cb]=state.curveColor,tol=Math.min(100,state.tolerance+15);
+  const raw=[];let prevX=Math.round((rx0+rx1)/2);
+  for(let row=0;row<=(ry1-ry0);row++){
+    const py=ry0+row,candidates=[];
+    for(let col=0;col<=(rx1-rx0);col++){
+      const px=rx0+col,i=(row*W+col)*4;
+      if(Math.abs(data.data[i]-cr)+Math.abs(data.data[i+1]-cg)+Math.abs(data.data[i+2]-cb)<tol*3) candidates.push(px);
+    }
+    if(!candidates.length||candidates.length>(rx1-rx0)*0.8) continue;
+    const clusters=[];let cur=[candidates[0]];
+    for(let i=1;i<candidates.length;i++){if(candidates[i]-candidates[i-1]<=3)cur.push(candidates[i]);else{clusters.push(cur);cur=[candidates[i]];}}
+    clusters.push(cur);
+    let best=clusters[0],bd=Infinity;
+    for(const cl of clusters){const m=cl[Math.floor(cl.length/2)],d=Math.abs(m-prevX);if(d<bd){bd=d;best=cl;}}
+    const med=best[Math.floor(best.length/2)];prevX=med;raw.push({px:med,py});
+  }
+  if(raw.length<2){toast('No curve found in that region');return;}
+  const win=Math.max(1,Math.min(3,state.smoothing));
+  const sm=raw.map((pt,i)=>{const half=Math.floor(win/2);const sl=raw.slice(Math.max(0,i-half),Math.min(raw.length,i+half+1));return{px:sl.reduce((s,p)=>s+p.px,0)/sl.length,py:pt.py};});
+  const newPts=sm.map(pt=>pixToData(pt.px,pt.py)).filter(Boolean);
+  if(!newPts.length) return;
+  pushHistory();
+  const minD=newPts[0].depth,maxD=newPts[newPts.length-1].depth;
+  state.controlPoints=[...state.controlPoints.filter(cp=>cp.depth<minD-0.01||cp.depth>maxD+0.01),
+    ...extractControlPointsPx(sm,state.cpSensitivity)].sort((a,b)=>a.depth-b.depth);
+  state.trace=[...state.trace.filter(t=>t.depth<minD-0.001||t.depth>maxD+0.001),...newPts].sort((a,b)=>a.depth-b.depth);
+  resample(); renderCanvas();
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────
+function renderCanvas(){
+  const vw=viewport.clientWidth,vh=viewport.clientHeight;
+  canvas.width=vw; canvas.height=vh;
+  ctx.fillStyle='#e8edf5'; ctx.fillRect(0,0,vw,vh);
+  if(!state.imageLoaded){
+    ctx.fillStyle='rgba(0,0,0,0.3)';ctx.font='14px system-ui';ctx.textAlign='center';
+    ctx.fillText('Upload a CPT plot image to get started',vw/2,vh/2);return;
+  }
+  ctx.save(); ctx.translate(panX,panY); ctx.scale(zoom,zoom);
+  ctx.drawImage(state.imageBitmap,0,0);
+
+  // plot rect
+  if(state.plotRect){
+    const r=state.plotRect;
+    ctx.strokeStyle='rgba(59,130,246,0.6)';ctx.lineWidth=2/zoom;ctx.setLineDash([6/zoom,3/zoom]);
+    ctx.strokeRect(Math.min(r.x0,r.x1),Math.min(r.y0,r.y1),Math.abs(r.x1-r.x0),Math.abs(r.y1-r.y0));
+    ctx.setLineDash([]);
+  }
+  // plot area ghost
+  if(mode==='plotarea2'&&plotCorner1){
+    const mx=mouseImgPos.x,my=mouseImgPos.y;
+    ctx.strokeStyle='rgba(59,130,246,0.4)';ctx.lineWidth=1.5/zoom;ctx.setLineDash([5/zoom,3/zoom]);
+    ctx.strokeRect(Math.min(plotCorner1.x,mx),Math.min(plotCorner1.y,my),Math.abs(mx-plotCorner1.x),Math.abs(my-plotCorner1.y));
+    ctx.setLineDash([]);
+  }
+  // calibration points
+  for(const [key,pt] of Object.entries(state.calibration)){
+    if(!pt||!pt.px) continue;
+    const col=key==='A'?'#22c55e':'#f59e0b';
+    drawCross(pt.px.x,pt.px.y,col,8/zoom);
+    ctx.fillStyle=col;ctx.font=`bold ${11/zoom}px system-ui`;ctx.textAlign='left';
+    ctx.fillText(key,pt.px.x+10/zoom,pt.px.y-4/zoom);
+  }
+  // locked X line
+  if(mode==='calib-depth'&&calibLockedX!==null){
+    ctx.strokeStyle=calibTarget==='A'?'rgba(34,197,94,0.6)':'rgba(245,158,11,0.6)';
+    ctx.lineWidth=1.5/zoom;ctx.setLineDash([4/zoom,3/zoom]);
+    ctx.beginPath();ctx.moveTo(calibLockedX,0);ctx.lineTo(calibLockedX,state.imgH);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // dense trace
+  if(state.trace.length>1&&!state.overlay){
+    ctx.beginPath();ctx.strokeStyle='rgba(22,163,74,0.5)';ctx.lineWidth=2/zoom;
+    let first=true;
+    for(const pt of state.trace){const px=dataToPix(pt.value,pt.depth);if(!px)continue;if(first){ctx.moveTo(px.x,px.y);first=false;}else ctx.lineTo(px.x,px.y);}
+    ctx.stroke();
+  }
+  // control points
+  if(state.controlPoints.length>0&&!state.overlay){
+    // connecting skeleton line
+    if(state.controlPoints.length>1){
+      const sorted=[...state.controlPoints].sort((a,b)=>a.depth-b.depth);
+      ctx.beginPath();ctx.strokeStyle='rgba(13,148,136,0.35)';ctx.lineWidth=1.5/zoom;ctx.setLineDash([4/zoom,3/zoom]);
+      let first=true;
+      for(const cp of sorted){const px=dataToPix(cp.value,cp.depth);if(!px)continue;if(first){ctx.moveTo(px.x,px.y);first=false;}else ctx.lineTo(px.x,px.y);}
+      ctx.stroke();ctx.setLineDash([]);
+    }
+    // dots (no number labels — they clutter the view)
+    const sorted=[...state.controlPoints].sort((a,b)=>a.depth-b.depth);
+    sorted.forEach((cp)=>{
+      const px=dataToPix(cp.value,cp.depth);if(!px)return;
+      const isH=hoveredCP&&hoveredCP.id===cp.id, isD=draggingCP&&draggingCP.id===cp.id;
+      const r=(isD?11:isH?9:7)/zoom;
+      // white ring for contrast
+      ctx.beginPath();ctx.arc(px.x,px.y,r+2.5/zoom,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+      // coloured fill
+      ctx.beginPath();ctx.arc(px.x,px.y,r,0,Math.PI*2);
+      ctx.fillStyle=isD?'#f59e0b':isH?'#2dd4bf':'#0d9488';ctx.fill();
+      ctx.strokeStyle=isD?'#92400e':'#065f46';ctx.lineWidth=1.5/zoom;ctx.stroke();
+    });
+  }
+  // overlay
+  if(state.overlay&&state.resampledRows.length>1){
+    ctx.beginPath();ctx.strokeStyle='rgba(225,29,72,0.6)';ctx.lineWidth=2/zoom;
+    let first=true;
+    for(const row of state.resampledRows){const px=dataToPix(row.value,row.depth);if(!px)continue;if(first){ctx.moveTo(px.x,px.y);first=false;}else ctx.lineTo(px.x,px.y);}
+    ctx.stroke();
+    for(const row of state.resampledRows){const px=dataToPix(row.value,row.depth);if(!px)continue;ctx.beginPath();ctx.arc(px.x,px.y,2.5/zoom,0,Math.PI*2);ctx.fillStyle='rgba(225,29,72,0.6)';ctx.fill();}
+  }
+  // refine region ghost
+  if(regionRect){
+    const r=regionRect;
+    ctx.fillStyle='rgba(139,92,246,0.08)';ctx.fillRect(Math.min(r.x0,r.x1),Math.min(r.y0,r.y1),Math.abs(r.x1-r.x0),Math.abs(r.y1-r.y0));
+    ctx.strokeStyle='rgba(139,92,246,0.7)';ctx.lineWidth=1.5/zoom;ctx.setLineDash([5/zoom,3/zoom]);
+    ctx.strokeRect(Math.min(r.x0,r.x1),Math.min(r.y0,r.y1),Math.abs(r.x1-r.x0),Math.abs(r.y1-r.y0));
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+  renderMinimap();
+}
+
+function drawCross(x,y,color,size){
+  ctx.strokeStyle=color;ctx.lineWidth=2/zoom;
+  ctx.beginPath();ctx.moveTo(x-size,y);ctx.lineTo(x+size,y);ctx.moveTo(x,y-size);ctx.lineTo(x,y+size);ctx.stroke();
+  ctx.beginPath();ctx.arc(x,y,size*0.55,0,Math.PI*2);ctx.fillStyle=color+'55';ctx.fill();
+}
+
+function renderMinimap(){
+  if(!state.imageLoaded) return;
+  const mw=minimap.width,mh=minimap.height;
+  const scale=Math.min(mw/state.imgW,mh/state.imgH);
+  const ox=(mw-state.imgW*scale)/2,oy=(mh-state.imgH*scale)/2;
+  mctx.fillStyle='#e8edf5';mctx.fillRect(0,0,mw,mh);
+  mctx.drawImage(state.imageBitmap,ox,oy,state.imgW*scale,state.imgH*scale);
+  if(state.plotRect){const r=state.plotRect;mctx.strokeStyle='rgba(59,130,246,0.7)';mctx.lineWidth=1;mctx.strokeRect(ox+Math.min(r.x0,r.x1)*scale,oy+Math.min(r.y0,r.y1)*scale,Math.abs(r.x1-r.x0)*scale,Math.abs(r.y1-r.y0)*scale);}
+  if(state.trace.length>1&&!state.overlay){
+    mctx.beginPath();mctx.strokeStyle='rgba(22,163,74,0.8)';mctx.lineWidth=1;let f=true;
+    for(const pt of state.trace){const px=dataToPix(pt.value,pt.depth);if(!px)continue;const mx=ox+px.x*scale,my=oy+px.y*scale;if(f){mctx.moveTo(mx,my);f=false;}else mctx.lineTo(mx,my);}
+    mctx.stroke();
+  }
+  if(state.overlay&&state.resampledRows.length>1){
+    mctx.beginPath();mctx.strokeStyle='rgba(225,29,72,0.7)';mctx.lineWidth=1.5;let f=true;
+    for(const row of state.resampledRows){const px=dataToPix(row.value,row.depth);if(!px)continue;const mx=ox+px.x*scale,my=oy+px.y*scale;if(f){mctx.moveTo(mx,my);f=false;}else mctx.lineTo(mx,my);}
+    mctx.stroke();
+  }
+  if(mode==='calib-depth'&&calibLockedX!==null){
+    mctx.strokeStyle=calibTarget==='A'?'rgba(34,197,94,0.7)':'rgba(245,158,11,0.7)';
+    mctx.setLineDash([3,2]);mctx.lineWidth=1;const mx=ox+calibLockedX*scale;
+    mctx.beginPath();mctx.moveTo(mx,oy);mctx.lineTo(mx,oy+state.imgH*scale);mctx.stroke();mctx.setLineDash([]);
+  }
+  const vw=viewport.clientWidth,vh=viewport.clientHeight;
+  mctx.strokeStyle='rgba(37,99,235,0.9)';mctx.lineWidth=1.5;
+  mctx.strokeRect(ox+(-panX/zoom)*scale,oy+(-panY/zoom)*scale,(vw/zoom)*scale,(vh/zoom)*scale);
+}
+
+// ── BANNER ─────────────────────────────────────────────────────────────
+function showBanner(text,color){const b=document.getElementById('guide-banner');b.textContent=text;b.className='guide-banner '+color;b.style.display='block';}
+function hideBanner(){document.getElementById('guide-banner').style.display='none';}
+
+// ── NEXT STEP ──────────────────────────────────────────────────────────
+function updateNextStep(){
+  const area=document.getElementById('next-step-area');
+  let html='';
+  if(!state.imageLoaded){
+    setPanels(['image'],['calib','plotarea','trace','refine','rexport']);
+    html=`<div class="step-card blue"><div class="step-num">Step 1 · Upload</div><div class="step-title">📷 Upload your CPT plot image</div><div class="step-desc">Click "Choose image" below to load your plot.</div></div>`;
+  }else if(!state.calibration.A||!state.calibration.B){
+    setPanels(['calib'],['image','plotarea','trace','refine','rexport']);
+    html=`<div class="step-card emerald"><div class="step-num">Step 2 · Calibrate</div><div class="step-title">🎯 Calibrate the axes</div><div class="step-desc">Place two known points (A and B). Each uses <strong>two clicks</strong>: click 1 locks X position, click 2 locks depth. Enter the real values and click Apply.</div></div>`;
+  }else if(!state.plotRect){
+    setPanels(['plotarea'],['image','calib','trace','refine','rexport']);
+    html=`<div class="step-card blue"><div class="step-num">Step 3 · Plot area</div><div class="step-title">⬜ Mark the plot area</div><div class="step-desc">Click "Draw plot area" then click two diagonal corners around the curve.</div></div>`;
+  }else if(!state.trace.length){
+    setPanels(['trace'],['image','calib','plotarea','refine','rexport']);
+    html=`<div class="step-card violet"><div class="step-num">Step 4 · Auto-trace</div><div class="step-title">🪄 Run auto-trace</div><div class="step-desc">Pick curve color, adjust sliders, then click Run.</div></div>`;
+  }else if(!mode.startsWith('refine')){
+    setPanels(['refine','trace'],['image','calib','plotarea','rexport']);
+    html=`<div class="step-card violet"><div class="step-num">Step 5 · Refine</div><div class="step-title">✏️ Refine the trace</div><div class="step-desc">The teal dots are control points. Click to add, drag to move, Shift+click to delete, drag empty space to re-trace a region.</div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-violet btn-sm" onclick="setRefineMode()">✏️ Enter refine mode</button><button class="btn btn-emerald btn-sm" onclick="proceedToVerify()">✓ Done — verify →</button></div></div>`;
+  }else{
+    setPanels(['rexport'],['image','calib','plotarea','trace','refine']);
+    html=`<div class="step-card rose"><div class="step-num">Steps 6–7 · Verify &amp; export</div><div class="step-title">👁 Verify, then export</div><div class="step-desc">Toggle "Show overlay" in the right panel to check the red line against your curve. Edit values in the table if needed, then download CSV.</div><button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="exitRefineMode()">← Back to refine</button></div>`;
+  }
+  area.innerHTML=html;
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+function proceedToVerify(){
+  exitRefineMode();
+  // Open the combined export panel, expand overlay, scroll right panel to top
+  setPanels(['rexport'],['image','calib','plotarea','trace','refine']);
+  document.getElementById('overlay-toggle').checked=true;
+  toggleOverlay(true);
+}
+
+window.addEventListener('resize',()=>{renderCanvas();renderMinimap();});
+</script>
+</body>
+</html>
