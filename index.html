@@ -72,7 +72,8 @@ input[type=range] { width: 100%; accent-color: var(--blue); cursor: pointer; }
 .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 .canvas-viewport { flex: 1; overflow: hidden; position: relative; background: #e8edf5; }
 #main-canvas { position: absolute; transform-origin: top left; cursor: crosshair; display: block; }
-#minimap-container { position: absolute; bottom: 12px; right: 12px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border2); background: white; cursor: pointer; box-shadow: var(--shadow); }
+#minimap-container { position: absolute; bottom: 12px; right: 12px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border2); background: white; cursor: grab; box-shadow: var(--shadow); }
+#minimap-container:active { cursor: grabbing; }
 #minimap { display: block; }
 .guide-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.12); max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
 .guide-banner.green { background: #f0fdf4; border: 1px solid #86efac; color: #15803d; }
@@ -264,7 +265,7 @@ input[type=range] { width: 100%; accent-color: var(--blue); cursor: pointer; }
   <div class="canvas-area">
     <div class="canvas-toolbar">
       <button class="btn-icon" onclick="zoomBy(-0.25)">−</button>
-      <input type="range" min="25" max="800" value="100" id="zoom-slider" style="width:80px" oninput="setZoom(this.value/100)">
+      <input type="range" min="25" max="6400" value="100" id="zoom-slider" style="width:80px" oninput="setZoom(this.value/100)">
       <button class="btn-icon" onclick="zoomBy(0.25)">+</button>
       <span class="zoom-display" id="zoom-display">100%</span>
       <div class="toolbar-sep"></div>
@@ -404,7 +405,9 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('mouseleave', onMouseLeave);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   document.addEventListener('keydown', onKeyDown);
-  minimap.parentElement.addEventListener('mousedown', onMinimapClick);
+  minimap.parentElement.addEventListener('mousedown', onMinimapDown);
+  document.addEventListener('mousemove', onMinimapMove);
+  document.addEventListener('mouseup', onMinimapUp);
   renderCanvas();
   updateNextStep();
 });
@@ -804,7 +807,7 @@ function copyCSV(){const csv=getCSV();if(!csv){toast('No data');return;}navigato
 
 // ── ZOOM/PAN ───────────────────────────────────────────────────────────
 function setZoom(z,cx,cy){
-  const old=zoom; zoom=Math.min(8,Math.max(0.25,z));
+  const old=zoom; zoom=Math.min(64,Math.max(0.25,z));
   document.getElementById('zoom-slider').value=Math.round(zoom*100);
   document.getElementById('zoom-display').textContent=Math.round(zoom*100)+'%';
   if(cx!==undefined){panX=cx-(cx-panX)*(zoom/old);panY=cy-(cy-panY)*(zoom/old);}
@@ -834,10 +837,10 @@ function togglePan(){
 function canvasToImg(cx,cy){return{x:(cx-panX)/zoom,y:(cy-panY)/zoom};}
 
 // ── FIND NEAREST CP ────────────────────────────────────────────────────
-// Returns the closest CP within a generous hit radius (image-pixel units)
+// Hit radius matches the rendered dot size (7px canvas radius) plus a small margin
 function findNearestCP(imgX,imgY){
   if(!state.controlPoints.length) return null;
-  const hitR=Math.max(20,18/zoom); // generous — at least 20 image-px regardless of zoom
+  const hitR = 10 / zoom; // 10 canvas pixels → image pixel units
   let best=null,bestD=Infinity;
   for(const cp of state.controlPoints){
     const px=dataToPix(cp.value,cp.depth);
@@ -849,7 +852,9 @@ function findNearestCP(imgX,imgY){
 }
 
 // ── MOUSE EVENTS ───────────────────────────────────────────────────────
-const DRAG_THRESHOLD = 5;
+// Drag threshold in canvas pixels — must move this far before a drag is committed
+// Keep it large enough that a normal click never triggers a region drag
+const DRAG_THRESHOLD = 12;
 let mouseDownImg = null;
 let mouseDownCanvas = null;
 let dragCandidate = null;
@@ -1005,12 +1010,42 @@ function onKeyDown(e){
   if(e.key==='Escape')exitRefineMode();
   if((e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.shiftKey?redo():undo();}
 }
-function onMinimapClick(e){
-  const rect=minimap.getBoundingClientRect();
-  const scale=minimap.width/state.imgW;
-  const ix=(e.clientX-rect.left)/scale,iy=(e.clientY-rect.top)/scale;
-  panX=viewport.clientWidth/2-ix*zoom; panY=viewport.clientHeight/2-iy*zoom;
+// ── MINIMAP INTERACTION ────────────────────────────────────────────────
+let minimapDragging = false;
+
+function minimapCoords() {
+  // Returns the scale and offsets used by renderMinimap — single source of truth
+  const mw=minimap.width, mh=minimap.height;
+  const scale=Math.min(mw/state.imgW, mh/state.imgH);
+  const ox=(mw-state.imgW*scale)/2, oy=(mh-state.imgH*scale)/2;
+  return {scale, ox, oy};
+}
+
+function minimapPanTo(clientX, clientY) {
+  if(!state.imageLoaded) return;
+  const rect = minimap.getBoundingClientRect();
+  const {scale, ox, oy} = minimapCoords();
+  const mx = clientX - rect.left, my = clientY - rect.top;
+  const ix = (mx - ox) / scale, iy = (my - oy) / scale;
+  const cix = Math.max(0, Math.min(state.imgW, ix));
+  const ciy = Math.max(0, Math.min(state.imgH, iy));
+  panX = viewport.clientWidth/2 - cix*zoom;
+  panY = viewport.clientHeight/2 - ciy*zoom;
   clampPan(); renderCanvas(); renderMinimap();
+}
+
+function onMinimapDown(e) {
+  if(!state.imageLoaded) return;
+  minimapDragging = true;
+  minimapPanTo(e.clientX, e.clientY);
+  e.preventDefault();
+}
+function onMinimapMove(e) {
+  if(!minimapDragging) return;
+  minimapPanTo(e.clientX, e.clientY);
+}
+function onMinimapUp(e) {
+  minimapDragging = false;
 }
 
 // ── CURSOR ─────────────────────────────────────────────────────────────
